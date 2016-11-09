@@ -6,10 +6,20 @@ const Game = require('./game');
 const Vector = require('./vector');
 const Camera = require('./camera');
 const Player = require('./player');
-const BulletPool = require('./bullet_pool');
+const Bullet = require('./bullet');
+const Powerup = require('./powerup');
+const Enemy = require('./enemy');
 
 
 /* Global variables */
+var enemyTimer = 1000;
+var start = true;
+var spawnEnemy = false;
+var advanceLevel = false;
+var transition = false;
+var pauseGame = false;
+var winGame = false;
+var loseGame = false;
 var canvas = document.getElementById('screen');
 var game = new Game(canvas, update, render);
 var input = {
@@ -19,9 +29,77 @@ var input = {
   right: false
 }
 var camera = new Camera(canvas);
-var bullets = new BulletPool(10);
+var score = 0;
+
+var enemyBullets = [];
+var bullets = [];
 var missiles = [];
 var player = new Player(bullets, missiles);
+var bulletDuration = 500;
+var bulletSize = 5;
+var powerups = [];
+var spawned = false;
+var level = 1;
+var backgrounds = [
+  new Image(),
+  new Image(),
+  new Image()
+];
+
+function init(){
+  powerups = [];
+  enemies = [];
+  if(level == 1){
+    backgrounds[2].src = 'assets2/level1.png';
+    backgrounds[1].src = 'assets2/level1_layer2.png';
+    backgrounds[0].src = 'assets2/level1_layer3.png';
+  }
+  else if(level == 2){
+    backgrounds[2].src = 'assets2/level2.png';
+    backgrounds[1].src = 'assets2/level2_layer2.png';
+    backgrounds[0].src = 'assets2/level2_layer3.png';
+    player.position.x = 500;
+    player.position.y = 5000;
+  }
+  else if(level == 3){
+    backgrounds[2].src = 'assets2/level3.png';
+    backgrounds[1].src = 'assets2/level3_layer2.png';
+    backgrounds[0].src = 'assets2/level3_layer3.png';
+    player.position.x = 500;
+    player.position.y = 5000;
+  }
+  else {
+    transition = true;
+    winGame = true;
+  }
+}
+
+var enemies = [];
+var enemy1 = new Enemy(level, camera.x, camera.y);
+var enemy2 = new Enemy(level, camera.x, camera.y);
+var enemy3 = new Enemy(level, camera.x, camera.y);
+var enemy4 = new Enemy(level, camera.x, camera.y);
+var enemy5 = new Enemy(level, camera.x, camera.y);
+var enemy6 = new Enemy(level, camera.x, camera.y);
+var enemy7 = new Enemy(level, camera.x, camera.y);
+var enemy8 = new Enemy(level, camera.x, camera.y);
+var enemy9 = new Enemy(level, camera.x, camera.y);
+var enemy10 = new Enemy(level, camera.x, camera.y);
+enemies.push(enemy1);
+enemies.push(enemy2);
+enemies.push(enemy3);
+enemies.push(enemy4);
+enemies.push(enemy5);
+enemies.push(enemy6);
+enemies.push(enemy7);
+enemies.push(enemy8);
+enemies.push(enemy9);
+enemies.push(enemy10);
+
+
+document.getElementById("screen").style.backgroundAttachment= "fixed";
+document.getElementById("screen").style.backgroundSize="100%";
+document.getElementById("screen").style.backgroundRepeat="no-repeat";
 
 /**
  * @function onkeydown
@@ -48,6 +126,13 @@ window.onkeydown = function(event) {
     case "d":
       input.right = true;
       event.preventDefault();
+      break;
+    case "j":
+      var bullet = new Bullet(player.position, bulletSize);
+      bullets.push(bullet);
+      setTimeout(function(){
+        bullets.splice(0,1);
+      }, bulletDuration);
       break;
   }
 }
@@ -78,6 +163,9 @@ window.onkeyup = function(event) {
       input.right = false;
       event.preventDefault();
       break;
+    case "Enter":
+      pauseGame = !pauseGame;
+      break;
   }
 }
 
@@ -87,7 +175,32 @@ window.onkeyup = function(event) {
  * @param {DOMHighResTimeStamp} timestamp the current time
  */
 var masterLoop = function(timestamp) {
-  game.loop(timestamp);
+  if(!pauseGame && winGame == false && loseGame == false){
+    setTimeout(function(){
+      game.loop(timestamp);
+    }, 1000/8);
+    transition = false;
+  }
+  else {
+    transition = true;
+  }
+
+  if(start == true){
+    init();
+    start = false;
+    pauseGame = true;
+  }
+  if(advanceLevel == true){
+    score += 100;
+    enemyTimer -= 200;
+    init();
+    transition = true;
+    setTimeout(function(){
+      transition = false;
+    }, 3000);
+    advanceLevel = false;
+    pauseGame = true;
+  }
   window.requestAnimationFrame(masterLoop);
 }
 masterLoop(performance.now());
@@ -101,18 +214,107 @@ masterLoop(performance.now());
  * the number of milliseconds passed since the last frame.
  */
 function update(elapsedTime) {
+  if(spawned == false){
+    setTimeout(function(){
+      powerups.push(new Powerup(camera.x, camera.y));
+      spawned = false;
+      }
+    , 8000);
+    spawned = true;
+  }
+
+  for (var f = 0; f < enemies.length; f++) {
+    if(((player.position.x - 12.5) + 23 > enemies[f].x) && (player.position.x - 12.5 < (enemies[f].x + 11))
+    && ((player.position.y - 12) + 27 > enemies[f].y) && (player.position.y - 12 < (enemies[f].y + 11))){
+      transition = true;
+      loseGame = true;
+      console.log(loseGame);
+    }
+  }
+
+  if(spawnEnemy == false){
+    setTimeout(function(){
+      for (var v = 0; v < enemies.length; v++) {
+        enemyBullets.push(enemies[v].fire());
+        setTimeout(function(){
+          enemyBullets.splice(0,1)}, 4000);
+      }
+      enemies.push(new Enemy(level, camera.x, camera.y));
+      spawnEnemy = false;
+      }
+    , enemyTimer);
+    spawnEnemy = true;
+  }
 
   // update the player
-  player.update(elapsedTime, input);
+  player.update(elapsedTime, input, level);
+  if(player.position.y <= -10){
+    level++;
+    advanceLevel = true;
+  }
 
   // update the camera
   camera.update(player.position);
 
   // Update bullets
-  bullets.update(elapsedTime, function(bullet){
-    if(!camera.onScreen(bullet)) return true;
-    return false;
-  });
+  for (var i = 0; i < bullets.length; i++) {
+    bullets[i].update(true);
+  }
+
+  for (var b = 0; b < enemies.length; b++) {
+    for (var c = 0; c < bullets.length; c++) {
+      if((enemies[b].x + 10 > bullets[c].x) && (enemies[b].x < (bullets[c].x + 5))
+      && (enemies[b].y + 10 > bullets[c].y) && (enemies[b].y - 12 < (bullets[c].y + 5))){
+        enemies.splice(b,1);
+        bullets.splice(c,1);
+        break;
+      }
+    }
+  }
+
+  for (var k = 0; k < enemyBullets.length; k++) {
+    enemyBullets[k].update(false);
+    if(((player.position.x - 12.5) + 23 > enemyBullets[k].x) && (player.position.x - 12.5 < (enemyBullets[k].x + 5))
+    && ((player.position.y - 12) + 27 > enemyBullets[k].y) && (player.position.y - 12 < (enemyBullets[k].y + 5))){
+      player.health--;
+      enemyBullets.splice(k,1);
+      if(player.health == 0){
+        transition = true;
+        loseGame = true;
+      }
+      break;
+    }
+  }
+
+  for (var j = 0; j < powerups.length; j++) {
+    if(((player.position.x - 12.5) + 23 > powerups[j].x) && (player.position.x - 12.5 < (powerups[j].x + 11))
+    && ((player.position.y - 12) + 27 > powerups[j].y) && (player.position.y - 12< (powerups[j].y + 11))){
+      powerups[j].touched = true;
+    }
+    var action = powerups[j].update();
+    if (action){
+      switch (powerups[j].color) {
+        case 'red':
+          player.health++;
+          powerups.splice(j,1);
+          break;
+        case 'yellow':
+          bulletSize += 1;
+          powerups.splice(j,1);
+          break;
+        case 'blue':
+          bulletDuration += 100;
+          powerups.splice(j,1);
+          break;
+        case '#00FBFF':
+          powerups.splice(j,1);
+          break;
+        case '#FF9B00':
+          powerups.splice(j,1);
+          break;
+      }
+    }
+  }
 
   // Update missiles
   var markedForRemoval = [];
@@ -125,6 +327,10 @@ function update(elapsedTime) {
   markedForRemoval.forEach(function(index){
     missiles.splice(index, 1);
   });
+
+  for (var w = 0; w < enemies.length; w++) {
+    enemies[w].update();
+  }
 }
 
 /**
@@ -135,8 +341,7 @@ function update(elapsedTime) {
   * @param {CanvasRenderingContext2D} ctx the context to render to
   */
 function render(elapsedTime, ctx) {
-  ctx.fillStyle = "black";
-  ctx.fillRect(0, 0, 1024, 786);
+    renderBackgrounds(elapsedTime, ctx);
 
   // TODO: Render background
 
@@ -153,6 +358,61 @@ function render(elapsedTime, ctx) {
   // Render the GUI without transforming the
   // coordinate system
   renderGUI(elapsedTime, ctx);
+
+  if(transition){
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, 960, 800);
+    var healthText = "Health: "
+    ctx.fillStyle = 'white';
+    ctx.font="52px Arial";
+    ctx.fillText(healthText, 250, 250);
+    for (var z = 0; z < player.health; z++) {
+      ctx.fillRect(400 + (50*(z+1)), 210 , 25, 50);
+    }
+    var scoreText = "Score: " + score;
+    ctx.fillText(scoreText, 250, 325);
+    var resumeText = "Press Enter to Play/Resume!";
+    ctx.fillText(resumeText, 150, 450);
+    if(winGame){
+      var winText = "You Won!";
+      ctx.fillText(winText, 375, 600);
+    }
+    if(loseGame){
+      var loseText = "You Lost!";
+      ctx.fillText(loseText, 375, 600);
+    }
+  }
+}
+
+function renderBackgrounds(elapsedTime, ctx) {
+  ctx.save();
+
+  // The background scrolls at 2% of the foreground speed
+  ctx.translate(0, -camera.y * 0.2);
+  ctx.drawImage(backgrounds[2], 0, 0);
+  ctx.restore();
+
+  // The midground scrolls at 60% of the foreground speed
+  ctx.save();
+  ctx.translate(0, -camera.y * 0.6);
+  ctx.drawImage(backgrounds[1], 0, 0);
+  ctx.restore();
+
+  // The foreground scrolls in sync with the camera
+  ctx.save();
+  ctx.translate(0, -camera.y);
+  ctx.drawImage(backgrounds[0], 0, 0);
+  ctx.restore();
+
+  var healthText = "Health: "
+  ctx.font="12px Arial";
+  ctx.fillStyle = 'red';
+  ctx.fillText(healthText, 10, 20);
+  for (var z = 0; z < player.health; z++) {
+    ctx.fillRect(40 + (10*(z+1)), 10 , 5, 10);
+  }
+  var scoreText = "Score: " + score;
+  ctx.fillText(scoreText, 10, 40);
 }
 
 /**
@@ -164,15 +424,26 @@ function render(elapsedTime, ctx) {
   */
 function renderWorld(elapsedTime, ctx) {
     // Render the bullets
-    bullets.render(elapsedTime, ctx);
+    for (var i = 0; i < bullets.length; i++) {
+      bullets[i].render(elapsedTime, ctx);
+    }
 
-    // Render the missiles
-    missiles.forEach(function(missile) {
-      missile.render(elapsedTime, ctx);
-    });
+    for (var n = 0; n < enemyBullets.length; n++) {
+      enemyBullets[n].render(elapsedTime, ctx);
+    }
+
+    for (var j = 0; j < powerups.length; j++) {
+      powerups[j].render(ctx);
+    }
+
+    for (var m = 0; m < enemies.length; m++) {
+      enemies[m].render(ctx);
+    }
 
     // Render the player
     player.render(elapsedTime, ctx);
+
+    //Render player lives
 }
 
 /**
@@ -185,103 +456,45 @@ function renderGUI(elapsedTime, ctx) {
   // TODO: Render the GUI
 }
 
-},{"./bullet_pool":2,"./camera":3,"./game":4,"./player":6,"./vector":8}],2:[function(require,module,exports){
+},{"./bullet":2,"./camera":3,"./enemy":4,"./game":5,"./player":6,"./powerup":7,"./vector":8}],2:[function(require,module,exports){
 "use strict";
 
-/**
- * @module BulletPool
- * A class for managing bullets in-game
- * We use a Float32Array to hold our bullet info,
- * as this creates a single memory buffer we can
- * iterate over, minimizing cache misses.
- * Values stored are: positionX, positionY, velocityX,
- * velocityY in that order.
- */
-module.exports = exports = BulletPool;
+const MS_PER_FRAME = 1000/8;
 
-/**
- * @constructor BulletPool
- * Creates a BulletPool of the specified size
- * @param {uint} size the maximum number of bullets to exits concurrently
- */
-function BulletPool(maxSize) {
-  this.pool = new Float32Array(4 * maxSize);
-  this.end = 0;
-  this.max = maxSize;
-}
+module.exports = exports = Bullet;
 
-/**
- * @function add
- * Adds a new bullet to the end of the BulletPool.
- * If there is no room left, no bullet is created.
- * @param {Vector} position where the bullet begins
- * @param {Vector} velocity the bullet's velocity
-*/
-BulletPool.prototype.add = function(position, velocity) {
-  if(this.end < this.max) {
-    this.pool[4*this.end] = position.x;
-    this.pool[4*this.end+1] = position.y;
-    this.pool[4*this.end+2] = velocity.x;
-    this.pool[4*this.end+3] = velocity.y;
-    this.end++;
+function Bullet(pos, bulletSize){
+  this.x = pos.x;
+  this.y = pos.y;
+  this.width = bulletSize;
+  this.height = bulletSize;
+  this.angle = 2 * Math.PI;
+  this.velocity = {
+    x: 1,
+    y: 1
   }
 }
 
-/**
- * @function update
- * Updates the bullet using its stored velocity, and
- * calls the callback function passing the transformed
- * bullet.  If the callback returns true, the bullet is
- * removed from the pool.
- * Removed bullets are replaced with the last bullet's values
- * and the size of the bullet array is reduced, keeping
- * all live bullets at the front of the array.
- * @param {DOMHighResTimeStamp} elapsedTime
- * @param {function} callback called with the bullet's position,
- * if the return value is true, the bullet is removed from the pool
- */
-BulletPool.prototype.update = function(elapsedTime, callback) {
-  for(var i = 0; i < this.end; i++){
-    // Move the bullet
-    this.pool[4*i] += this.pool[4*i+2];
-    this.pool[4*i+1] += this.pool[4*i+3];
-    // If a callback was supplied, call it
-    if(callback && callback({
-      x: this.pool[4*i],
-      y: this.pool[4*i+1]
-    })) {
-      // Swap the current and last bullet if we
-      // need to remove the current bullet
-      this.pool[4*i] = this.pool[4*(this.end-1)];
-      this.pool[4*i+1] = this.pool[4*(this.end-1)+1];
-      this.pool[4*i+2] = this.pool[4*(this.end-1)+2];
-      this.pool[4*i+3] = this.pool[4*(this.end-1)+3];
-      // Reduce the total number of bullets by 1
-      this.end--;
-      // Reduce our iterator by 1 so that we update the
-      // freshly swapped bullet.
-      i--;
+
+Bullet.prototype.update = function(up){
+  var direction = {
+    x: -Math.sin(this.angle) * (.1 * 80),
+    y: -Math.cos(this.angle) * (.1 * 80)
+  }
+  if(up == false){
+    direction = {
+      x: Math.sin(this.angle) * (.1 * 40),
+      y: Math.cos(this.angle) * (.1 * 40)
     }
   }
+  this.x += direction.x;
+  this.y += direction.y;
 }
 
-/**
- * @function render
- * Renders all bullets in our array.
- * @param {DOMHighResTimeStamp} elapsedTime
- * @param {CanvasRenderingContext2D} ctx
- */
-BulletPool.prototype.render = function(elapsedTime, ctx) {
-  // Render the bullets as a single path
-  ctx.save();
-  ctx.beginPath();
-  ctx.fillStyle = "black";
-  for(var i = 0; i < this.end; i++) {
-    ctx.moveTo(this.pool[4*i], this.pool[4*i+1]);
-    ctx.arc(this.pool[4*i], this.pool[4*i+1], 2, 0, 2*Math.PI);
-  }
-  ctx.fill();
-  ctx.restore();
+
+Bullet.prototype.render = function(time, ctx) {
+  ctx.fillStyle = '#040FC3';
+  ctx.fillRect(this.x, this.y, this.width, this.height);
 }
 
 },{}],3:[function(require,module,exports){
@@ -315,6 +528,9 @@ function Camera(screen) {
  */
 Camera.prototype.update = function(target) {
   // TODO: Align camera with player
+  if(target.y > 700){
+      this.y = target.y - 700;
+  }
 }
 
 /**
@@ -353,6 +569,123 @@ Camera.prototype.toWorldCoordinates = function(screenCoordinates) {
 }
 
 },{"./vector":8}],4:[function(require,module,exports){
+"use strict";
+
+const MS_PER_FRAME = 1000/8;
+const Bullet = require('./bullet');
+
+module.exports = exports = Enemy;
+
+function Enemy(level, x, y){
+  this.type = 0;
+  this.sprite = new Image();
+  var randomEnemy = Math.floor(Math.random() * 3) + 1;
+  switch (randomEnemy) {
+    case 1:
+      this.type = 1;
+      this.sprite.src = 'assets2/turret1.png';
+      break;
+    case 2:
+      this.type = 2;
+      this.sprite.src = 'assets2/turretred.png';
+      break;
+    case 3:
+      this.type = 3;
+      this.sprite.src = 'assets2/turretblue.png';
+      break;
+    case 4:
+      this.type = 4;
+      break;
+    case 5:
+      this.type = 5;
+      break;
+  }
+  var randomX = Math.floor(Math.random() * 2) + 1;
+  var randomY = Math.floor(Math.random() * 250) + y;
+  this.x = -40;
+  if(this.type == 3){
+    randomY = Math.floor(Math.random() * 900) + y;
+  }
+  this.left = true;
+  if(randomX == 1){
+    this.x = 960;
+    this.left = false;
+  }
+  this.y = randomY;
+  this.width = 10;
+  this.height = 10;
+}
+
+Enemy.prototype.update = function(){
+  if(this.type == 1){
+    if(this.left){
+      this.x+=2;
+      this.y++;
+    }else {
+      this.x-=2;
+      this.y++;
+    }
+  }
+  else if(this.type == 2){
+    if(this.left){
+      this.x+=2;
+    }else {
+      this.x-=2;
+    }
+  } else if(this.type == 3){
+    if(this.left){
+      this.x+=2;
+      this.y-=2;
+    }else {
+      this.x-=2;
+      this.y-=2;
+    }
+  }
+  if(this.touched == true){
+    return true;
+  }
+}
+
+Enemy.prototype.fire = function(){
+  return new Bullet({x: this.x, y: this.y}, 5);
+}
+
+Enemy.prototype.render = function(ctx) {
+  switch (this.type) {
+    case 1:
+    ctx.drawImage(
+      this.sprite,
+      this.x, this.y, 32,32
+    );
+      break;
+    case 2:
+    ctx.drawImage(
+      this.sprite,
+      this.x, this.y,32,32
+    );
+      break;
+    case 3:
+    ctx.drawImage(
+      this.sprite,
+      this.x, this.y,32,32
+    );
+      break;
+    case 4:
+    ctx.drawImage(
+      this.sprite,
+      this.x, this.y,32,32
+    );
+      break;
+    case 5:
+    ctx.drawImage(
+      this.sprite,
+      this.x, this.y,32,32
+    );
+      break;
+  }
+}
+
+},{"./bullet":2}],5:[function(require,module,exports){
 "use strict";
 
 /**
@@ -410,89 +743,11 @@ Game.prototype.loop = function(newTime) {
   this.frontCtx.drawImage(this.backBuffer, 0, 0);
 }
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 "use strict";
 
 /* Classes and Libraries */
 const Vector = require('./vector');
-const SmokeParticles = require('./smoke_particles');
-
-/* Constants */
-const MISSILE_SPEED = 8;
-
-/**
- * @module Missile
- * A class representing a player's missile
- */
-module.exports = exports = Missile;
-
-/**
- * @constructor Missile
- * Creates a missile
- * @param {Vector} position the position of the missile
- * @param {Object} target the target of the missile
- */
-function Missile(position, target) {
-  this.position = {x: position.x, y:position.y}
-  this.target = target;
-  this.angle = 0;
-  this.img = new Image()
-  this.img.src = 'assets/helicopter.png';
-  this.smokeParticles = new SmokeParticles(400);
-}
-
-/**
- * @function update
- * Updates the missile, steering it towards a locked
- * target or straight ahead
- * @param {DOMHighResTimeStamp} elapedTime
- */
-Missile.prototype.update = function(elapsedTime) {
-
-  // set the velocity
-  var velocity = {x: MISSILE_SPEED, y: 0}
-  if(this.target) {
-    var direction = Vector.subtract(this.position, this.target);
-    velocity = Vector.scale(Vector.normalize(direction), MISSILE_SPEED);
-  }
-
-  // determine missile angle
-  this.angle = Math.atan2(velocity.y, velocity.x);
-
-  // move the missile
-  this.position.x += velocity.x;
-  this.position.y += velocity.y;
-
-  // emit smoke
-  this.smokeParticles.emit(this.position);
-
-  // update smoke
-  this.smokeParticles.update(elapsedTime);
-}
-
-/**
- * @function render
- * Renders the missile in world coordinates
- * @param {DOMHighResTimeStamp} elapsedTime
- * @param {CanvasRenderingContext2D} ctx
- */
-Missile.prototype.render = function(elapsedTime, ctx) {
-  // Draw Missile
-  ctx.save();
-  ctx.translate(this.position.x, this.position.y);
-  ctx.rotate(this.angle);
-  ctx.drawImage(this.img, 76, 56, 16, 8, 0, -4, 16, 8);
-  ctx.restore();
-  // Draw Smoke
-  this.smokeParticles.render(elapsedTime, ctx);
-}
-
-},{"./smoke_particles":7,"./vector":8}],6:[function(require,module,exports){
-"use strict";
-
-/* Classes and Libraries */
-const Vector = require('./vector');
-const Missile = require('./missile');
 
 /* Constants */
 const PLAYER_SPEED = 5;
@@ -514,10 +769,11 @@ function Player(bullets, missiles) {
   this.missileCount = 4;
   this.bullets = bullets;
   this.angle = 0;
-  this.position = {x: 200, y: 200};
+  this.position = {x: 500, y: 2000};
   this.velocity = {x: 0, y: 0};
   this.img = new Image()
-  this.img.src = 'assets/tyrian.shp.007D3C.png';
+  this.img.src = 'assets2/ship.png';
+  this.health = 4;
 }
 
 /**
@@ -527,7 +783,7 @@ function Player(bullets, missiles) {
  * @param {Input} input object defining input, must have
  * boolean properties: up, left, right, down
  */
-Player.prototype.update = function(elapsedTime, input) {
+Player.prototype.update = function(elapsedTime, input, level) {
 
   // set the velocity
   this.velocity.x = 0;
@@ -547,9 +803,16 @@ Player.prototype.update = function(elapsedTime, input) {
   this.position.y += this.velocity.y;
 
   // don't let the player move off-screen
-  if(this.position.x < 0) this.position.x = 0;
-  if(this.position.x > 1024) this.position.x = 1024;
-  if(this.position.y > 786) this.position.y = 786;
+  if(level == 1){
+    if(this.position.x < 0) this.position.x = 0;
+    if(this.position.x > 960) this.position.x = 960;
+    if(this.position.y > 2000) this.position.y = 2000;
+  }
+  else {
+    if(this.position.x < 0) this.position.x = 0;
+    if(this.position.x > 960) this.position.x = 960;
+    if(this.position.y > 5000) this.position.y = 5000;
+  }
 }
 
 /**
@@ -562,7 +825,7 @@ Player.prototype.render = function(elapasedTime, ctx) {
   var offset = this.angle * 23;
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
-  ctx.drawImage(this.img, 48+offset, 57, 23, 27, -12.5, -12, 23, 27);
+  ctx.drawImage(this.img, 0, 0, 76, 62, -12.5, -12, 23, 27);
   ctx.restore();
 }
 
@@ -591,110 +854,52 @@ Player.prototype.fireMissile = function() {
   }
 }
 
-},{"./missile":5,"./vector":8}],7:[function(require,module,exports){
+},{"./vector":8}],7:[function(require,module,exports){
 "use strict";
 
-/**
- * @module SmokeParticles
- * A class for managing a particle engine that
- * emulates a smoke trail
- */
-module.exports = exports = SmokeParticles;
+const MS_PER_FRAME = 1000/8;
 
-/**
- * @constructor SmokeParticles
- * Creates a SmokeParticles engine of the specified size
- * @param {uint} size the maximum number of particles to exist concurrently
- */
-function SmokeParticles(maxSize) {
-  this.pool = new Float32Array(3 * maxSize);
-  this.start = 0;
-  this.end = 0;
-  this.wrapped = false;
-  this.max = maxSize;
+module.exports = exports = Powerup;
+
+function Powerup(x, y){
+  var randomX = Math.floor(Math.random() * 800) + x;
+  var randomY = Math.floor(Math.random() * 900) + y;
+  this.x = randomX;
+  this.y = randomY;
+  this.touched = false;
+  var randomColor = Math.floor(Math.random() * 5) + 1;
+  switch (randomColor) {
+    case 1:
+      this.color = 'red';
+      break;
+    case 2:
+      this.color = 'blue';
+      break;
+    case 3:
+      this.color = 'yellow';
+      break;
+    case 4:
+      this.color = '#00FBFF';
+      break;
+    case 5:
+      this.color = '#FF9B00';
+      break;
+  }
+  this.width = 10;
+  this.height = 10;
 }
 
-/**
- * @function emit
- * Adds a new particle at the given position
- * @param {Vector} position
-*/
-SmokeParticles.prototype.emit = function(position) {
-  if(this.end != this.max) {
-    this.pool[3*this.end] = position.x;
-    this.pool[3*this.end+1] = position.y;
-    this.pool[3*this.end+2] = 0.0;
-    this.end++;
-  } else {
-    this.pool[3] = position.x;
-    this.pool[4] = position.y;
-    this.pool[5] = 0.0;
-    this.end = 1;
-  }
-}
 
-/**
- * @function update
- * Updates the particles
- * @param {DOMHighResTimeStamp} elapsedTime
- */
-SmokeParticles.prototype.update = function(elapsedTime) {
-  function updateParticle(i) {
-    this.pool[3*i+2] += elapsedTime;
-    if(this.pool[3*i+2] > 2000) this.start = i;
-  }
-  var i;
-  if(this.wrapped) {
-    for(i = 0; i < this.end; i++){
-      updateParticle.call(this, i);
-    }
-    for(i = this.start; i < this.max; i++){
-      updateParticle.call(this, i);
-    }
-  } else {
-    for(i = this.start; i < this.end; i++) {
-      updateParticle.call(this, i);
-    }
+Powerup.prototype.update = function(bulletDuration){
+  if(this.touched == true){
+    return true;
   }
 }
 
-/**
- * @function render
- * Renders all bullets in our array.
- * @param {DOMHighResTimeStamp} elapsedTime
- * @param {CanvasRenderingContext2D} ctx
- */
-SmokeParticles.prototype.render = function(elapsedTime, ctx) {
-  function renderParticle(i){
-    var alpha = 1 - (this.pool[3*i+2] / 1000);
-    var radius = 0.1 * this.pool[3*i+2];
-    if(radius > 5) radius = 5;
-    ctx.beginPath();
-    ctx.arc(
-      this.pool[3*i],   // X position
-      this.pool[3*i+1], // y position
-      radius, // radius
-      0,
-      2*Math.PI
-    );
-    ctx.fillStyle = 'rgba(160, 160, 160,' + alpha + ')';
-    ctx.fill();
-  }
 
-  // Render the particles individually
-  var i;
-  if(this.wrapped) {
-    for(i = 0; i < this.end; i++){
-      renderParticle.call(this, i);
-    }
-    for(i = this.start; i < this.max; i++){
-      renderParticle.call(this, i);
-    }
-  } else {
-    for(i = this.start; i < this.end; i++) {
-      renderParticle.call(this, i);
-    }
-  }
+Powerup.prototype.render = function(ctx) {
+  ctx.fillStyle = this.color;
+  ctx.fillRect(this.x, this.y, this.width, this.height);
 }
 
 },{}],8:[function(require,module,exports){

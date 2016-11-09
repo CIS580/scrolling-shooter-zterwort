@@ -2,7 +2,6 @@
 
 /* Classes and Libraries */
 const Vector = require('./vector');
-const Missile = require('./missile');
 
 /* Constants */
 const PLAYER_SPEED = 5;
@@ -24,10 +23,11 @@ function Player(bullets, missiles) {
   this.missileCount = 4;
   this.bullets = bullets;
   this.angle = 0;
-  this.position = {x: 200, y: 200};
+  this.position = {x: 500, y: 2000};
   this.velocity = {x: 0, y: 0};
   this.img = new Image()
-  this.img.src = 'assets/tyrian.shp.007D3C.png';
+  this.img.src = 'assets2/ship.png';
+  this.health = 4;
 }
 
 /**
@@ -37,7 +37,7 @@ function Player(bullets, missiles) {
  * @param {Input} input object defining input, must have
  * boolean properties: up, left, right, down
  */
-Player.prototype.update = function(elapsedTime, input) {
+Player.prototype.update = function(elapsedTime, input, level) {
 
   // set the velocity
   this.velocity.x = 0;
@@ -57,9 +57,16 @@ Player.prototype.update = function(elapsedTime, input) {
   this.position.y += this.velocity.y;
 
   // don't let the player move off-screen
-  if(this.position.x < 0) this.position.x = 0;
-  if(this.position.x > 1024) this.position.x = 1024;
-  if(this.position.y > 786) this.position.y = 786;
+  if(level == 1){
+    if(this.position.x < 0) this.position.x = 0;
+    if(this.position.x > 960) this.position.x = 960;
+    if(this.position.y > 2000) this.position.y = 2000;
+  }
+  else {
+    if(this.position.x < 0) this.position.x = 0;
+    if(this.position.x > 960) this.position.x = 960;
+    if(this.position.y > 5000) this.position.y = 5000;
+  }
 }
 
 /**
@@ -72,7 +79,7 @@ Player.prototype.render = function(elapasedTime, ctx) {
   var offset = this.angle * 23;
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
-  ctx.drawImage(this.img, 48+offset, 57, 23, 27, -12.5, -12, 23, 27);
+  ctx.drawImage(this.img, 0, 0, 76, 62, -12.5, -12, 23, 27);
   ctx.restore();
 }
 

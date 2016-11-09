@@ -28,6 +28,9 @@ function Camera(screen) {
  */
 Camera.prototype.update = function(target) {
   // TODO: Align camera with player
+  if(target.y > 700){
+      this.y = target.y - 700;
+  }
 }
 
 /**
